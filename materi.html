@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Modul TIK Interaktif</title>
+    <script src="https://tailwindcss.com"></script>
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+
+    <!-- Navigasi Atas -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="index.html" class="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center gap-2">
+                &larr; Kembali ke Beranda
+            </a>
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Modul TIK Interaktif</span>
+        </div>
+    </nav>
+
+    <!-- Konten Pembelajaran -->
+    <main class="max-w-4xl mx-auto px-4 py-8 flex-grow w-full flex flex-col">
+        
+        <!-- Judul Bab Otomatis -->
+        <header class="mb-6">
+            <span id="txt-bab" class="text-xs font-bold text-blue-600 uppercase tracking-widest">Memuat Bab...</span>
+            <h1 id="txt-judul" class="text-2xl md:text-4xl font-extrabold text-gray-900 mt-1 leading-tight">Memuat Judul Materi...</h1>
+            <div class="w-16 h-1 bg-blue-600 mt-4 rounded-full"></div>
+        </header>
+
+        <!-- Bingkai Google Docs Otomatis -->
+        <div class="flex-grow w-full bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-8" style="min-h: 700px;">
+            <iframe id="frame-docs" src="" width="100%" height="100%" style="border: none; min-h: 700px;"></iframe>
+        </div>
+
+        <!-- Kotak Evaluasi / Tugas -->
+        <section id="box-kuis" class="hidden bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl shadow-xs">
+            <h4 class="text-amber-800 font-bold text-lg mb-2">📝 Uji Pemahaman Mandiri</h4>
+            <p class="text-amber-900/80 text-sm mb-4 leading-relaxed">
+                Setelah selesai membaca materi di atas, silakan klik tombol di bawah ini untuk mengerjakan kuis evaluasi.
+            </p>
+            <a id="btn-kuis" href="#" target="_blank" class="inline-block bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition">
+                Mulai Kerjakan Kuis &rarr;
+            </a>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-100 py-6 text-center text-xs text-gray-400 mt-12">
+        &copy; 2026 Modul TIK Otomatis. All Rights Reserved.
+    </footer>
+
+    <!-- SCRIPT JAVASCRIPT FETCH DATA -->
+    <script>
+        // LAKUKAN: Ganti teks di bawah ini dengan Link CSV Google Sheets Anda yang asli
+        const URL_SPREADSHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9t3q4OEReVVCtBdVvgU0TMOhObUP3QaTPV_4QOr04iC7fQANqAWQAgz606aokl6TnYQOh1j-66Cul/pub?output=csv";
+
+        function getMateriId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id') || "1";
+        }
+
+        function parseCSV(text) {
+            const lines = text.split("\n");
+            const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ''));
+            const result = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i]) continue;
+                
+                // Memisahkan kolom koma dengan aman (menjaga koma di dalam link URL)
+                const matches = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(",");
+                const cleanRow = matches.map(r => r.trim().replace(/^"|"$/g, ''));
+                
+                let obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = cleanRow[index];
+                });
+                result.push(obj);
+            }
+            return result;
+        }
+
+        async function muatMateriOtomatis() {
+            try {
+                const targetId = getMateriId();
+                const response = await fetch(URL_SPREADSHEET);
+                const dataTeks = await response.text();
+                const daftarMateri = parseCSV(dataTeks);
+
+                const materiTerpilih = daftarMateri.find(m => m.id === targetId);
+
+                if (materiTerpilih) {
+                    document.getElementById("txt-bab").innerText = materiTerpilih.bab;
+                    document.getElementById("txt-judul").innerText = materiTerpilih.judul;
+                    document.getElementById("frame-docs").src = materiTerpilih.link_docs;
+                    document.title = materiTerpilih.bab + ": " + materiTerpilih.judul;
+                    
+                    // Menampilkan tombol kuis hanya jika kolom kuis di Google Sheets terisi
+                    if (materiTerpilih.kuis && materiTerpilih.kuis !== "#" && materiTerpilih.kuis.trim() !== "") {
+                        document.getElementById("btn-kuis").href = materiTerpilih.kuis;
+                        document.getElementById("box-kuis").classList.remove("hidden");
+                    }
+                } else {
+                    document.getElementById("txt-judul").innerText = "Materi tidak ditemukan.";
+                }
+            } catch (error) {
+                console.error("Gagal memuat database:", error);
+                document.getElementById("txt-judul").innerText = "Gagal memuat materi web.";
+            }
+        }
+
+        muatMateriOtomatis();
+    </script>
+</body>
+</html>
